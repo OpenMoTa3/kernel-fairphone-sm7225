@@ -701,7 +701,7 @@ boost_write(struct cgroup_subsys_state *css, struct cftype *cft,
 	return 0;
 }
 
-static struct cftype files[] = {
+static struct cftype legacy_files[] = {
 #ifdef CONFIG_SCHED_WALT
 	{
 		.name = "sched_boost_no_override",
@@ -725,6 +725,36 @@ static struct cftype files[] = {
 		.write_u64 = prefer_idle_write,
 	},
 	{ }	/* terminate */
+};
+
+static struct cftype files[] = {
+#ifdef CONFIG_SCHED_WALT
+	{
+		.name = "sched_boost_no_override",
+		.read_u64 = sched_boost_override_read,
+		.write_u64 = sched_boost_override_write,
+		.flags = CFTYPE_NOT_ON_ROOT,
+	},
+	{
+		.name = "colocate",
+		.read_u64 = sched_colocate_read,
+		.write_u64 = sched_colocate_write,
+		.flags = CFTYPE_NOT_ON_ROOT,
+	},
+#endif
+	{
+		.name = "boost",
+		.read_s64 = boost_read,
+		.write_s64 = boost_write,
+		.flags = CFTYPE_NOT_ON_ROOT,
+	},
+	{
+		.name = "prefer_idle",
+		.read_u64 = prefer_idle_read,
+		.write_u64 = prefer_idle_write,
+		.flags = CFTYPE_NOT_ON_ROOT,
+	},
+	{ }     /* terminate */
 };
 
 static void
@@ -812,8 +842,10 @@ struct cgroup_subsys schedtune_cgrp_subsys = {
 	.attach		= schedtune_attach,
 	.can_attach	= schedtune_can_attach,
 	.cancel_attach	= schedtune_cancel_attach,
-	.legacy_cftypes	= files,
+	.dfl_cftypes	= files,
+	.legacy_cftypes	= legacy_files,
 	.early_init	= 1,
+	.threaded	= true,
 };
 
 static inline void
