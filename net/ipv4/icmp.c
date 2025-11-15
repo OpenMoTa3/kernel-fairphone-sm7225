@@ -705,7 +705,6 @@ void __icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info,
 	if (__ip_options_echo(net, &icmp_param.replyopts.opt.opt, skb_in, opt))
 		goto out_unlock;
 
-
 	/*
 	 *	Prepare data for ICMP header.
 	 */
