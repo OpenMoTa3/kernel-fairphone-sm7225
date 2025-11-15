@@ -705,7 +705,6 @@ void __icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info,
 	if (__ip_options_echo(net, &icmp_param.replyopts.opt.opt, skb_in, opt))
 		goto out_unlock;
 
-
 	/*
 	 *	Prepare data for ICMP header.
 	 */
@@ -743,6 +742,13 @@ void __icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info,
 	if (icmp_param.data_len > room)
 		icmp_param.data_len = room;
 	icmp_param.head_len = sizeof(struct icmphdr);
+
+	/* if we don't have a source address at this point, fall back to the
+	 * dummy address instead of sending out a packet with a source address
+	 * of 0.0.0.0
+	 */
+	if (!fl4.saddr)
+		fl4.saddr = htonl(INADDR_DUMMY);
 
 	icmp_push_reply(&icmp_param, &fl4, &ipc, &rt);
 ende:
