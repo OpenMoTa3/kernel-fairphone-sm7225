@@ -2419,8 +2419,8 @@ static void wacom_wireless_work(struct work_struct *work)
 
 	wacom_destroy_battery(wacom);
 
-       if (!usbdev)
-               return;
+	if (!usbdev)
+		return;
 
 	/* Stylus interface */
 	hdev1 = usb_get_intfdata(usbdev->config->interface[1]);
@@ -2737,13 +2737,13 @@ static int wacom_probe(struct hid_device *hdev,
 	wacom_wac->hid_data.inputmode = -1;
 	wacom_wac->mode_report = -1;
 
-       if (hid_is_usb(hdev)) {
-               struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
-               struct usb_device *dev = interface_to_usbdev(intf);
+	if (hid_is_usb(hdev)) {
+		struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
+		struct usb_device *dev = interface_to_usbdev(intf);
 
-               wacom->usbdev = dev;
-               wacom->intf = intf;
-       }
+		wacom->usbdev = dev;
+		wacom->intf = intf;
+	}
 
 	mutex_init(&wacom->lock);
 	INIT_DELAYED_WORK(&wacom->init_work, wacom_init_work);
