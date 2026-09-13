@@ -62,27 +62,35 @@ jobs:
           echo "CONFIG_BLK_DEV_DM=y" >> "$DEFCONFIG"
           echo "CONFIG_DM_CRYPT=y" >> "$DEFCONFIG"
 
-          # 2. 创建 debian 目录结构 (不创建 debian/compat 避免与 control 冲突)
+          # 2. 创建 debian 目录结构
           mkdir -p debian/source
           rm -f debian/compat
           echo "3.0 (native)" > debian/source/format
 
-          # 3. 生成 debian/rules (带制表符 Tab)
+          # 3. 生成 debian/rules
           printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\n%%:\n\tdh $@\n' > debian/rules
           chmod +x debian/rules
 
-          # 4. 生成 debian/kernel-info.mk
+          # 4. 生成 debian/kernel-info.mk (补齐交叉编译三元组)
           echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
           echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
           echo "DEVICE_MODEL = fp4" >> debian/kernel-info.mk
           echo "DEVICE_FULL_NAME = Fairphone 4" >> debian/kernel-info.mk
           echo "KERNEL_BASE_VERSION = 4.19" >> debian/kernel-info.mk
           echo "KERNEL_ARCH = arm64" >> debian/kernel-info.mk
+          echo "ARCH = arm64" >> debian/kernel-info.mk
           echo "DEB_BUILD_FOR = arm64" >> debian/kernel-info.mk
           echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
+          
+          # Clang 与目标架构三元组绑定
           echo "BUILD_CC = clang" >> debian/kernel-info.mk
           echo "CLANG_VERSION = 10.0-r370808" >> debian/kernel-info.mk
+          echo "BUILD_CLANG_TRIPLET = aarch64-linux-gnu-" >> debian/kernel-info.mk
+          echo "CLANG_TRIPLE = aarch64-linux-gnu-" >> debian/kernel-info.mk
+          echo "CROSS_COMPILE = aarch64-linux-android-" >> debian/kernel-info.mk
+          echo "CROSS_COMPILE_ARM32 = arm-linux-androideabi-" >> debian/kernel-info.mk
           echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
+          
           echo "BUILD_TARGET = Image.gz-dtb" >> debian/kernel-info.mk
           echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_CMDLINE = console=ttyMSM0,115200n8 console=tty0 droidian.lvm.prefer earlycon=msm_geni_serial,0xa90000 androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7" >> debian/kernel-info.mk
@@ -111,17 +119,10 @@ jobs:
               apt-get update
               apt-get install -y linux-packaging-snippets
               
-              # 1. 生成初始 control 文件
               rm -f debian/control debian/compat
               debian/rules debian/control
-              
-              # 2. 清洗剔除上游模板残留的非法包名 'clang-android-, '
               sed -i 's/clang-android-, //g' debian/control
               
-              echo '=== Cleaned debian/control ==='
-              cat debian/control
-              
-              # 3. 启动交叉编译构建
               RELENG_HOST_ARCH=arm64 releng-build-package
             "
 
@@ -134,4 +135,4 @@ jobs:
         with:
           name: droidian-fp4-kernel-deb
           path: pkgs/*.deb
-          if-no-files-found: error
+          if-no-files-found: error              
