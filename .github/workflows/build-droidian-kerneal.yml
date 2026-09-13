@@ -71,6 +71,80 @@ jobs:
           printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\n%%:\n\tdh $@\n' > debian/rules
           chmod +x debian/rules
 
+          # 4. 生成 debian/kernel-info.mk
+          echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
+          echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
+          echo "DEVICE_MODEL = fp4" >> debian/kernel-info.mk
+          echo "DEVICE_FULL_NAME = Fairphone 4" >> debian/kernel-info.mk
+          echo "KERNEL_BASE_VERSION = 4.19" >> debian/kernel-info.mk
+          echo "KERNEL_ARCH = arm64" >> debian/kernel-info.mk
+          echo "DEB_BUILD_FOR = arm64" >> debian/kernel-info.mk
+          echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
+          echo "BUILD_CC = clang" >> debian/kernel-info.mk
+          echo "CLANG_VERSION = 10.0-r370808" >> debian/kernel-info.mk
+          echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
+          echo "BUILD_TARGET = Image.gz-dtb" >> debian/kernel-info.mk
+          echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
+          echo "KERNEL_BOOTIMAGE_CMDLINE = console=ttyMSM0,115200n8 console=tty0 droidian.lvm.prefer earlycon=msm_geni_serial,0xa90000 androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7" >> debian/kernel-info.mk
+          echo "KERNEL_BOOTIMAGE_VERSION = 2" >> debian/kernel-info.mk
+          echo "KERNEL_BOOTIMAGE_PAGE_SIZE = 4096" >> debian/kernel-info.mk
+          echo "FLASH_ENABLED = 1" >> debian/kernel-info.mk
+          echo "FLASH_INFO_MANUFACTURER = Fairphone" >> debian/kernel-info.mk
+          echo "FLASH_INFO_MODEL = FP4" >> debian/kernel-info.mk
+          echo "FLASH_INFO_CPU = Qualcomm Technologies, Inc SM7225" >> debian/kernel-info.mk
+
+          # 5. 校验文件完整性
+          cat debian/kernel-info.mk
+
+      - name: Build Kernel Deb via Droidian Container
+        run: |
+          mkdir -p "${{ github.workspace }}/pkgs"
+
+          docker run --rm \
+            -v "${{ github.workspace }}/pkgs:/buildd" \
+            -v "${{ github.workspace }}:/buildd/sources" \
+            -w /buildd/sources \
+            quay.io/droidian/build-essential:current-amd64 \
+            bash -c "
+              set -e
+              git config --global --add safe.directory /buildd/sources
+              apt-get update
+              apt-get install -y linux-packaging-snippets
+              
+              # 1. 生成初始 control 文件
+              rm -f debian/control
+              debian/rules debian/control
+              
+              # 2. 清洗剔除上游模板残留的非法包名 'clang-android-, '
+              sed -i 's/clang-android-, //g' debian/control
+              
+              echo '=== Cleaned debian/control ==='
+              cat debian/control
+              
+              # 3. 启动交叉编译构建
+              RELENG_HOST_ARCH=arm64 releng-build-package
+            "
+
+      - name: Check Package Outputs
+        run: |
+          ls -la "${{ github.workspace }}/pkgs"
+
+      - name: Upload Kernel Packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: droidian-fp4-kernel-deb
+          path: pkgs/*.deb
+          if-no-files-found: error          echo "CONFIG_DM_CRYPT=y" >> "$DEFCONFIG"
+
+          # 2. 创建 debian 目录结构
+          mkdir -p debian/source
+          echo "13" > debian/compat
+          echo "3.0 (native)" > debian/source/format
+
+          # 3. 生成 debian/rules (带制表符 Tab)
+          printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\n%%:\n\tdh $@\n' > debian/rules
+          chmod +x debian/rules
+
           # 4. 生成 debian/kernel-info.mk (使用对齐后的正确变量名)
           echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
           echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
