@@ -77,33 +77,33 @@ jobs:
           rm -f debian/compat
           echo "3.0 (native)" > debian/source/format
 
-          # 3. 官方纯正 4 行 debian/rules (带标准 Tab)
-          printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\n%%:\n\tdh $@\n' > debian/rules
+          # 3. 官方原生 debian/rules
+          printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\nBUILD_COMMAND := $(BUILD_COMMAND) DTC_EXT=/usr/bin/dtc\n\n%%:\n\tdh $@\n' > debian/rules
           chmod +x debian/rules
 
-          # 4. 严格按照官方文档配置 debian/kernel-info.mk
+          # 4. 100% 对齐官方设备的 debian/kernel-info.mk
           echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
           echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
           echo "DEVICE_MODEL = fp4" >> debian/kernel-info.mk
           echo "DEVICE_FULL_NAME = Fairphone 4" >> debian/kernel-info.mk
           echo "KERNEL_BASE_VERSION = 4.19" >> debian/kernel-info.mk
           echo "KERNEL_ARCH = arm64" >> debian/kernel-info.mk
+          echo "DEB_BUILD_ON = amd64" >> debian/kernel-info.mk
           echo "DEB_BUILD_FOR = arm64" >> debian/kernel-info.mk
           echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
           
-          # 官方推荐 Android 11 Clang 工具链
+          # 官方真实核心构建目标变量名：KERNEL_BUILD_TARGET
+          echo "KERNEL_BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
+          echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
+          
+          # 工具链配置
           echo "BUILD_CC = clang" >> debian/kernel-info.mk
           echo "CLANG_VERSION = 10.0-r370808" >> debian/kernel-info.mk
           echo "BUILD_CLANG_TRIPLET = aarch64-linux-gnu-" >> debian/kernel-info.mk
           echo "CROSS_COMPILE = aarch64-linux-gnu-" >> debian/kernel-info.mk
           echo "CROSS_COMPILE_ARM32 = arm-linux-gnueabi-" >> debian/kernel-info.mk
           echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
-          
-          # 官方标准构建目标
-          echo "BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
-          echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
 
-          # 官方启动参数与 Header Version
           echo "KERNEL_BOOTIMAGE_CMDLINE = console=ttyMSM0,115200n8 console=tty0 droidian.lvm.prefer earlycon=msm_geni_serial,0xa90000 androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_VERSION = 2" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_PAGE_SIZE = 4096" >> debian/kernel-info.mk
@@ -129,12 +129,12 @@ jobs:
               set -e
               git config --global --add safe.directory /buildd/sources
               
-              # 开启 Multiarch 并安装目标 arm64 依赖
               dpkg --add-architecture arm64
               apt-get update
               apt-get install -y linux-packaging-snippets \
                 binutils-aarch64-linux-gnu \
                 binutils-arm-linux-gnueabi \
+                device-tree-compiler \
                 ccache \
                 linux-initramfs-halium-generic:arm64
               
@@ -153,7 +153,6 @@ jobs:
               debian/rules debian/control
               sed -i 's/clang-android-, //g' debian/control
               
-              # 启动官方标准打包
               RELENG_HOST_ARCH=arm64 releng-build-package
             "
 
