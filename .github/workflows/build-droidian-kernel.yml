@@ -81,7 +81,7 @@ jobs:
           printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\nBUILD_COMMAND := $(BUILD_COMMAND) DTC_EXT=/usr/bin/dtc\n\n%%:\n\tdh $@\n' > debian/rules
           chmod +x debian/rules
 
-          # 4. 补齐全部 Bootimage Offsets 参数
+          # 4. 全量对齐变量与偏移量
           echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
           echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
           echo "DEVICE_MODEL = fp4" >> debian/kernel-info.mk
@@ -92,6 +92,8 @@ jobs:
           echo "DEB_BUILD_FOR = arm64" >> debian/kernel-info.mk
           echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
           
+          # 关键构建目标同时赋值
+          echo "BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
           echo "KERNEL_BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
           echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
           
@@ -103,7 +105,7 @@ jobs:
           echo "CROSS_COMPILE_ARM32 = arm-linux-gnueabi-" >> debian/kernel-info.mk
           echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
 
-          # 启动参数与全部偏移量
+          # 完整偏移量与启动参数
           echo "KERNEL_BOOTIMAGE_CMDLINE = console=ttyMSM0,115200n8 console=tty0 droidian.lvm.prefer earlycon=msm_geni_serial,0xa90000 androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_BASE_OFFSET = 0x00000000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_KERNEL_OFFSET = 0x00008000" >> debian/kernel-info.mk
