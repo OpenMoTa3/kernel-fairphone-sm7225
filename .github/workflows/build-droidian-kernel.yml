@@ -71,7 +71,7 @@ jobs:
           printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\n%%:\n\tdh $@\n' > debian/rules
           chmod +x debian/rules
 
-          # 4. 生成 debian/kernel-info.mk (使用标准的 CLANG_VERSION)
+          # 4. 生成 debian/kernel-info.mk
           echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
           echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
           echo "DEVICE_MODEL = fp4" >> debian/kernel-info.mk
@@ -82,6 +82,7 @@ jobs:
           echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
           echo "BUILD_CC = clang" >> debian/kernel-info.mk
           echo "CLANG_VERSION = 10.0-r370808" >> debian/kernel-info.mk
+          echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
           echo "BUILD_TARGET = Image.gz-dtb" >> debian/kernel-info.mk
           echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_CMDLINE = console=ttyMSM0,115200n8 console=tty0 droidian.lvm.prefer earlycon=msm_geni_serial,0xa90000 androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7" >> debian/kernel-info.mk
@@ -109,10 +110,18 @@ jobs:
               git config --global --add safe.directory /buildd/sources
               apt-get update
               apt-get install -y linux-packaging-snippets
+              
+              # 1. 生成初始 control 文件
               rm -f debian/control
               debian/rules debian/control
-              echo '=== Generated debian/control ==='
+              
+              # 2. 清洗剔除上游模板残留的非法包名 'clang-android-, '
+              sed -i 's/clang-android-, //g' debian/control
+              
+              echo '=== Cleaned debian/control ==='
               cat debian/control
+              
+              # 3. 启动交叉编译构建
               RELENG_HOST_ARCH=arm64 releng-build-package
             "
 
