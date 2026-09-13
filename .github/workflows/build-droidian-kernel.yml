@@ -26,6 +26,16 @@ jobs:
         with:
           fetch-depth: 1
 
+      # 1. 恢复与持久化 CCache 编译缓存 (按分支与内核版本匹配)
+      - name: Setup CCache Engine
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: fp4-kernel-ccache-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            fp4-kernel-ccache-${{ runner.os }}-${{ github.ref_name }}-
+            fp4-kernel-ccache-${{ runner.os }}-
+
       - name: Setup Packaging Configs
         run: |
           # 1. 注入 defconfig 依赖
@@ -91,7 +101,7 @@ jobs:
           echo "CROSS_COMPILE_ARM32 = arm-linux-gnueabi-" >> debian/kernel-info.mk
           echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
           
-          # 关键镜像目标单一定义
+          # 关键镜像定义
           echo "BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
           echo "BUILD_TARGETS = dtbs" >> debian/kernel-info.mk
           echo "KERNEL_IMAGE = Image.gz" >> debian/kernel-info.mk
@@ -105,24 +115,32 @@ jobs:
           echo "FLASH_INFO_MODEL = FP4" >> debian/kernel-info.mk
           echo "FLASH_INFO_CPU = Qualcomm Technologies, Inc SM7225" >> debian/kernel-info.mk
 
-          # 5. 校验文件完整性
-          cat debian/kernel-info.mk
-
       - name: Build Kernel Deb via Droidian Container
         run: |
           mkdir -p "${{ github.workspace }}/pkgs"
+          mkdir -p "${{ github.workspace }}/.ccache"
 
           docker run --rm \
             -v "${{ github.workspace }}/pkgs:/buildd" \
             -v "${{ github.workspace }}:/buildd/sources" \
+            -v "${{ github.workspace }}/.ccache:/root/.ccache" \
+            -e CCACHE_DIR=/root/.ccache \
+            -e CCACHE_MAXSIZE=5G \
             -w /buildd/sources \
             quay.io/droidian/build-essential:current-amd64 \
             bash -c "
               set -e
               git config --global --add safe.directory /buildd/sources
               apt-get update
-              apt-get install -y linux-packaging-snippets binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
+              apt-get install -y linux-packaging-snippets binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi ccache
               
+              # 1. 设置 ccache 拦截 clang
+              mkdir -p /usr/local/bin
+              echo '#!/bin/bash' > /usr/local/bin/clang
+              echo 'exec ccache /usr/lib/llvm-android-10.0-r370808/bin/clang \"\$@\"' >> /usr/local/bin/clang
+              chmod +x /usr/local/bin/clang
+              
+              # 2. 交叉工具链软链接
               for tool in as ld ar nm objcopy objdump readelf strip; do
                 ln -sf /usr/bin/aarch64-linux-gnu-\$tool /usr/local/bin/aarch64-linux-android-\$tool 2>/dev/null || true
                 ln -sf /usr/bin/aarch64-linux-gnu-\$tool /usr/local/bin/aarch64-linux-gnu-\$tool 2>/dev/null || true
@@ -133,7 +151,16 @@ jobs:
               debian/rules debian/control
               sed -i 's/clang-android-, //g' debian/control
               
+              # 查看编译前缓存统计
+              echo '=== CCache Stats Before Build ==='
+              ccache -s || true
+              
+              # 启动编译打包
               RELENG_HOST_ARCH=arm64 releng-build-package
+              
+              # 查看编译后缓存命中情况
+              echo '=== CCache Stats After Build ==='
+              ccache -s || true
             "
 
       - name: Check Package Outputs
