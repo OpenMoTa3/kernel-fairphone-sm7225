@@ -106,7 +106,7 @@ jobs:
           echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
 
           # 完整偏移量与启动参数
-          echo "KERNEL_BOOTIMAGE_CMDLINE = console=ttyMSM0,115200n8 console=tty0 droidian.lvm.prefer earlycon=msm_geni_serial,0xa90000 androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7" >> debian/kernel-info.mk
+          echo "KERNEL_BOOTIMAGE_CMDLINE = console=ttyMSM0,115200,n8 console=tty0 droidian.lvm.prefer earlycon=msm_geni_serial,0x888000 androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_BASE_OFFSET = 0x00000000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_KERNEL_OFFSET = 0x00008000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_INITRAMFS_OFFSET = 0x01000000" >> debian/kernel-info.mk
