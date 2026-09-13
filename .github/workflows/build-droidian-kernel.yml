@@ -71,8 +71,9 @@ jobs:
           printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\n%%:\n\tdh $@\n' > debian/rules
           chmod +x debian/rules
 
-          # 4. 生成 debian/kernel-info.mk
+          # 4. 生成 debian/kernel-info.mk (使用标准的 CLANG_VERSION)
           echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
+          echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
           echo "DEVICE_MODEL = fp4" >> debian/kernel-info.mk
           echo "DEVICE_FULL_NAME = Fairphone 4" >> debian/kernel-info.mk
           echo "KERNEL_BASE_VERSION = 4.19" >> debian/kernel-info.mk
@@ -80,8 +81,7 @@ jobs:
           echo "DEB_BUILD_FOR = arm64" >> debian/kernel-info.mk
           echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
           echo "BUILD_CC = clang" >> debian/kernel-info.mk
-          echo "DEB_TOOLCHAIN = clang-android-10.0-r370808" >> debian/kernel-info.mk
-          echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
+          echo "CLANG_VERSION = 10.0-r370808" >> debian/kernel-info.mk
           echo "BUILD_TARGET = Image.gz-dtb" >> debian/kernel-info.mk
           echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_CMDLINE = console=ttyMSM0,115200n8 console=tty0 droidian.lvm.prefer earlycon=msm_geni_serial,0xa90000 androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7" >> debian/kernel-info.mk
@@ -111,6 +111,8 @@ jobs:
               apt-get install -y linux-packaging-snippets
               rm -f debian/control
               debian/rules debian/control
+              echo '=== Generated debian/control ==='
+              cat debian/control
               RELENG_HOST_ARCH=arm64 releng-build-package
             "
 
