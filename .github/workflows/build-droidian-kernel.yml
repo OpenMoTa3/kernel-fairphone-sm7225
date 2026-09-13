@@ -62,9 +62,9 @@ jobs:
           echo "CONFIG_BLK_DEV_DM=y" >> "$DEFCONFIG"
           echo "CONFIG_DM_CRYPT=y" >> "$DEFCONFIG"
 
-          # 2. 创建 debian 目录结构
+          # 2. 创建 debian 目录结构 (不创建 debian/compat 避免与 control 冲突)
           mkdir -p debian/source
-          echo "13" > debian/compat
+          rm -f debian/compat
           echo "3.0 (native)" > debian/source/format
 
           # 3. 生成 debian/rules (带制表符 Tab)
@@ -112,7 +112,7 @@ jobs:
               apt-get install -y linux-packaging-snippets
               
               # 1. 生成初始 control 文件
-              rm -f debian/control
+              rm -f debian/control debian/compat
               debian/rules debian/control
               
               # 2. 清洗剔除上游模板残留的非法包名 'clang-android-, '
