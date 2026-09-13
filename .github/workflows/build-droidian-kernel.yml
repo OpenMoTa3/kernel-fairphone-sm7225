@@ -76,7 +76,7 @@ jobs:
           rm -f debian/compat
           echo "3.0 (native)" > debian/source/format
 
-          # 3. 生成 debian/rules (动态查找 Image* 文件，绝不报错)
+          # 3. 干净的标准 debian/rules (修复 target-dtb 路径)
           printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\nout/KERNEL_OBJ/target-dtb.default:\n\t@mkdir -p out/KERNEL_OBJ\n\t@find out/KERNEL_OBJ/arch/arm64/boot/ -maxdepth 1 -type f -name "Image*" -exec cp {} out/KERNEL_OBJ/target-dtb.default \\; -quit || touch out/KERNEL_OBJ/target-dtb.default\n\n%%:\n\tdh $@\n' > debian/rules
           chmod +x debian/rules
 
@@ -132,8 +132,17 @@ jobs:
             bash -c "
               set -e
               git config --global --add safe.directory /buildd/sources
+              
+              # 1. 开启 Debian ARM64 Multiarch 支持
+              dpkg --add-architecture arm64
               apt-get update
-              apt-get install -y linux-packaging-snippets binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi ccache
+              
+              # 2. 安装 ARM64 专用的 Initramfs 和多架构工具链
+              apt-get install -y linux-packaging-snippets \
+                binutils-aarch64-linux-gnu \
+                binutils-arm-linux-gnueabi \
+                ccache \
+                linux-initramfs-halium-generic:arm64
               
               mkdir -p /usr/local/bin
               echo '#!/bin/bash' > /usr/local/bin/clang
@@ -150,13 +159,8 @@ jobs:
               debian/rules debian/control
               sed -i 's/clang-android-, //g' debian/control
               
-              echo '=== CCache Stats Before Build ==='
-              ccache -s || true
-              
+              # 3. 开始执行官方标准跨架构打包
               RELENG_HOST_ARCH=arm64 releng-build-package
-              
-              echo '=== CCache Stats After Build ==='
-              ccache -s || true
             "
 
       - name: Check Package Outputs
