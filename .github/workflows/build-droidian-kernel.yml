@@ -71,7 +71,7 @@ jobs:
           printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\n%%:\n\tdh $@\n' > debian/rules
           chmod +x debian/rules
 
-          # 4. 生成 debian/kernel-info.mk (使用标准的 KERNEL_IMAGE 变量)
+          # 4. 生成 debian/kernel-info.mk
           echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
           echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
           echo "DEVICE_MODEL = fp4" >> debian/kernel-info.mk
@@ -91,10 +91,10 @@ jobs:
           echo "CROSS_COMPILE_ARM32 = arm-linux-gnueabi-" >> debian/kernel-info.mk
           echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
           
-          # 关键产物与镜像定义
-          echo "BUILD_TARGET = Image.gz dtbs" >> debian/kernel-info.mk
+          # 关键镜像目标单一定义
+          echo "BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
+          echo "BUILD_TARGETS = dtbs" >> debian/kernel-info.mk
           echo "KERNEL_IMAGE = Image.gz" >> debian/kernel-info.mk
-          echo "KERNEL_IMAGE_NAME = Image.gz" >> debian/kernel-info.mk
           echo "KERNEL_IMAGE_WITH_DTB = 0" >> debian/kernel-info.mk
 
           echo "KERNEL_BOOTIMAGE_CMDLINE = console=ttyMSM0,115200n8 console=tty0 droidian.lvm.prefer earlycon=msm_geni_serial,0xa90000 androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7" >> debian/kernel-info.mk
