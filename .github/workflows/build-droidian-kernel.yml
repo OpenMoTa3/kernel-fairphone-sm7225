@@ -82,8 +82,8 @@ jobs:
           echo "DEB_BUILD_FOR = arm64" >> debian/kernel-info.mk
           echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
           
-          # 使用集成汇编器 + Debian 标准 binutils 前缀
-          echo 'BUILD_CC = clang -fintegrated-as' >> debian/kernel-info.mk
+          # BUILD_CC 必须为纯净的 clang
+          echo "BUILD_CC = clang" >> debian/kernel-info.mk
           echo "CLANG_VERSION = 10.0-r370808" >> debian/kernel-info.mk
           echo "BUILD_CLANG_TRIPLET = aarch64-linux-gnu-" >> debian/kernel-info.mk
           echo "CLANG_TRIPLE = aarch64-linux-gnu-" >> debian/kernel-info.mk
@@ -118,6 +118,13 @@ jobs:
               git config --global --add safe.directory /buildd/sources
               apt-get update
               apt-get install -y linux-packaging-snippets binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
+              
+              # 建立交叉汇编器/链接器别名软链接，彻底解决 Clang 查找 as 问题
+              for tool in as ld ar nm objcopy objdump readelf strip; do
+                ln -sf /usr/bin/aarch64-linux-gnu-\$tool /usr/local/bin/aarch64-linux-android-\$tool 2>/dev/null || true
+                ln -sf /usr/bin/aarch64-linux-gnu-\$tool /usr/local/bin/aarch64-linux-gnu-\$tool 2>/dev/null || true
+                ln -sf /usr/bin/arm-linux-gnueabi-\$tool /usr/local/bin/arm-linux-androideabi-\$tool 2>/dev/null || true
+              done
               
               rm -f debian/control debian/compat
               debian/rules debian/control
