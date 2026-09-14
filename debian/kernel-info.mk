@@ -1,0 +1,43 @@
+VARIANT = android
+   KERNEL_BASE_VERSION = 4.19
+
+   DEVICE_VENDOR = fairphone
+   DEVICE_NAME = fp4
+   DEVICE_MODEL = fp4
+   DEVICE_FULL_NAME = Fairphone 4
+
+   KERNEL_CONFIG_USE_FRAGMENTS = 0
+   KERNEL_DEFCONFIG = ubports_fp4_defconfig
+
+   KERNEL_BUILD_TARGET = Image.gz
+   KERNEL_IMAGE_WITH_DTB = 1
+   KERNEL_IMAGE_DTB = arch/arm64/boot/dts/vendor/qcom/sm7225.dtb
+
+   KERNEL_BOOTIMAGE_PAGE_SIZE = 4096
+   KERNEL_BOOTIMAGE_BASE_OFFSET = 0x00000000
+   KERNEL_BOOTIMAGE_KERNEL_OFFSET = 0x00008000
+   KERNEL_BOOTIMAGE_INITRAMFS_OFFSET = 0x01000000
+   KERNEL_BOOTIMAGE_SECONDIMAGE_OFFSET = 0x00f00000
+   KERNEL_BOOTIMAGE_TAGS_OFFSET = 0x00000100
+   KERNEL_BOOTIMAGE_DTB_OFFSET = 0x01f00000
+   KERNEL_BOOTIMAGE_VERSION = 2
+
+   KERNEL_BOOTIMAGE_CMDLINE = console=tty0 droidian.lvm.prefer androidboot.hardware=qcom androidboot.memcg=1 lpm_levels.sleep_disabled=1 service_locator.enable=1 swiotlb=2048 loop.max_part=7
+
+   DEVICE_VBMETA_REQUIRED = 1
+
+   BUILD_CC = clang
+   CLANG_VERSION = 10.0-r370808
+   BUILD_CLANG_TRIPLET = aarch64-linux-gnu-
+   CROSS_COMPILE = aarch64-linux-gnu-
+   CROSS_COMPILE_ARM32 = arm-linux-gnueabi-
+   BUILD_PATH = /usr/lib/llvm-android-$(CLANG_VERSION)/bin
+
+   DEB_BUILD_ON = amd64
+   DEB_BUILD_FOR = arm64
+   KERNEL_ARCH = arm64
+
+   FLASH_ENABLED = 1
+   FLASH_INFO_MANUFACTURER = Fairphone
+   FLASH_INFO_MODEL = FP4
+   FLASH_INFO_CPU = Qualcomm Technologies, Inc SM7225
