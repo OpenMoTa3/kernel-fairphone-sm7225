@@ -81,7 +81,7 @@ jobs:
           printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\nBUILD_COMMAND := $(BUILD_COMMAND) DTC_EXT=/usr/bin/dtc\n\n%%:\n\tdh $@\n' > debian/rules
           chmod +x debian/rules
 
-          # 4. 全量对齐变量与偏移量 (彻底解决秒回 Fastboot)
+          # 4. 全量对齐变量与偏移量 (安全启动标准)
           echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
           echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
           echo "DEVICE_MODEL = fp4" >> debian/kernel-info.mk
@@ -92,12 +92,10 @@ jobs:
           echo "DEB_BUILD_FOR = arm64" >> debian/kernel-info.mk
           echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
           
-          # 关键构建目标
           echo "BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
           echo "KERNEL_BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
           echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
           
-          # 工具链配置
           echo "BUILD_CC = clang" >> debian/kernel-info.mk
           echo "CLANG_VERSION = 10.0-r370808" >> debian/kernel-info.mk
           echo "BUILD_CLANG_TRIPLET = aarch64-linux-gnu-" >> debian/kernel-info.mk
@@ -105,10 +103,9 @@ jobs:
           echo "CROSS_COMPILE_ARM32 = arm-linux-gnueabi-" >> debian/kernel-info.mk
           echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
 
-          # 【核心修复】CMDLINE：以 console=tty0 为主，移除 earlycon 和 ttyMSM0 串口陷阱，加入安全内存参数
+          # 修正后的 CMDLINE（移除 earlycon 冲突）
           echo "KERNEL_BOOTIMAGE_CMDLINE = console=tty0 droidian.lvm.prefer androidboot.hardware=qcom androidboot.memcg=1 cgroup.memory=nokmem,nosocket swiotlb=2048 loop.max_part=7" >> debian/kernel-info.mk
           
-          # 完整偏移量与引导头参数
           echo "KERNEL_BOOTIMAGE_BASE_OFFSET = 0x00000000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_KERNEL_OFFSET = 0x00008000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_INITRAMFS_OFFSET = 0x01000000" >> debian/kernel-info.mk
@@ -133,7 +130,7 @@ jobs:
             -v "${{ github.workspace }}:/buildd/sources" \
             -v "${{ github.workspace }}/.ccache:/root/.ccache" \
             -e CCACHE_DIR=/root/.ccache \
-            quay.io/droidian/kernel-builder:bullseye-amd64 /bin/sh -c '
+            quay.io/droidian/build-essential:bookworm-amd64 /bin/sh -c '
               set -e
               cd /buildd/sources
               apt-get update
