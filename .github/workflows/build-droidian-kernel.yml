@@ -92,10 +92,12 @@ jobs:
           echo "DEB_BUILD_FOR = arm64" >> debian/kernel-info.mk
           echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
           
+          # 关键构建目标同时赋值
           echo "BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
           echo "KERNEL_BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
           echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
           
+          # 工具链配置
           echo "BUILD_CC = clang" >> debian/kernel-info.mk
           echo "CLANG_VERSION = 10.0-r370808" >> debian/kernel-info.mk
           echo "BUILD_CLANG_TRIPLET = aarch64-linux-gnu-" >> debian/kernel-info.mk
@@ -103,9 +105,8 @@ jobs:
           echo "CROSS_COMPILE_ARM32 = arm-linux-gnueabi-" >> debian/kernel-info.mk
           echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
 
-          # 仅修正此行：移除导致 Halium /init 拒绝执行的 earlycon/串口冲突
-          echo "KERNEL_BOOTIMAGE_CMDLINE = console=tty0 droidian.lvm.prefer androidboot.hardware=qcom androidboot.memcg=1 cgroup.memory=nokmem,nosocket swiotlb=2048 loop.max_part=7" >> debian/kernel-info.mk
-          
+          # 仅修正此行：以 console=tty0 为主，移除 earlycon 冲突
+          echo "KERNEL_BOOTIMAGE_CMDLINE = console=tty0 droidian.lvm.prefer androidboot.hardware=qcom androidboot.memcg=1 cgroup.memory=nokmem,nosocket loop.max_part=7" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_BASE_OFFSET = 0x00000000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_KERNEL_OFFSET = 0x00008000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_INITRAMFS_OFFSET = 0x01000000" >> debian/kernel-info.mk
@@ -120,7 +121,6 @@ jobs:
           echo "FLASH_INFO_MODEL = FP4" >> debian/kernel-info.mk
           echo "FLASH_INFO_CPU = Qualcomm Technologies, Inc SM7225" >> debian/kernel-info.mk
 
-      # 还原为原装容器调用，不执行任何联网 apt 破坏原本环境
       - name: Build Kernel Deb via Droidian Container
         run: |
           mkdir -p "${{ github.workspace }}/pkgs"
@@ -131,11 +131,7 @@ jobs:
             -v "${{ github.workspace }}:/buildd/sources" \
             -v "${{ github.workspace }}/.ccache:/root/.ccache" \
             -e CCACHE_DIR=/root/.ccache \
-            quay.io/droidian/build-essential:bookworm-amd64 /bin/sh -c '
-              cd /buildd/sources
-              dpkg-buildpackage -us -uc -b -aarm64
-              mv ../*.deb /buildd/ 2>/dev/null || true
-            '
+            quay.io/droidian/kernel-builder:bookworm-android9-amd64
 
           echo "=== 内核 Deb 构建产物清单 ==="
           ls -la "${{ github.workspace }}/pkgs/"
