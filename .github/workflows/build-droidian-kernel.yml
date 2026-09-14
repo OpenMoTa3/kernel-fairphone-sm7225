@@ -81,7 +81,7 @@ jobs:
           printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\nBUILD_COMMAND := $(BUILD_COMMAND) DTC_EXT=/usr/bin/dtc\n\n%%:\n\tdh $@\n' > debian/rules
           chmod +x debian/rules
 
-          # 4. 全量对齐变量与偏移量
+          # 4. 全量对齐变量与偏移量 (彻底解决秒回 Fastboot)
           echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
           echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
           echo "DEVICE_MODEL = fp4" >> debian/kernel-info.mk
@@ -92,7 +92,7 @@ jobs:
           echo "DEB_BUILD_FOR = arm64" >> debian/kernel-info.mk
           echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
           
-          # 关键构建目标同时赋值
+          # 关键构建目标
           echo "BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
           echo "KERNEL_BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
           echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
@@ -105,8 +105,10 @@ jobs:
           echo "CROSS_COMPILE_ARM32 = arm-linux-gnueabi-" >> debian/kernel-info.mk
           echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
 
-          # 完整偏移量与启动参数
-          echo "KERNEL_BOOTIMAGE_CMDLINE = console=ttyMSM0,115200,n8 console=tty0 droidian.lvm.prefer earlycon=msm_geni_serial,0x888000 androidboot.hardware=qcom androidboot.console=ttyMSM0 loop.max_part=7" >> debian/kernel-info.mk
+          # 【核心修复】CMDLINE：以 console=tty0 为主，移除 earlycon 和 ttyMSM0 串口陷阱，加入安全内存参数
+          echo "KERNEL_BOOTIMAGE_CMDLINE = console=tty0 droidian.lvm.prefer androidboot.hardware=qcom androidboot.memcg=1 cgroup.memory=nokmem,nosocket swiotlb=2048 loop.max_part=7" >> debian/kernel-info.mk
+          
+          # 完整偏移量与引导头参数
           echo "KERNEL_BOOTIMAGE_BASE_OFFSET = 0x00000000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_KERNEL_OFFSET = 0x00008000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_INITRAMFS_OFFSET = 0x01000000" >> debian/kernel-info.mk
@@ -131,47 +133,21 @@ jobs:
             -v "${{ github.workspace }}:/buildd/sources" \
             -v "${{ github.workspace }}/.ccache:/root/.ccache" \
             -e CCACHE_DIR=/root/.ccache \
-            -e CCACHE_MAXSIZE=5G \
-            -w /buildd/sources \
-            quay.io/droidian/build-essential:current-amd64 \
-            bash -c "
+            quay.io/droidian/kernel-builder:bullseye-amd64 /bin/sh -c '
               set -e
-              git config --global --add safe.directory /buildd/sources
-              
-              dpkg --add-architecture arm64
+              cd /buildd/sources
               apt-get update
-              apt-get install -y linux-packaging-snippets \
-                binutils-aarch64-linux-gnu \
-                binutils-arm-linux-gnueabi \
-                device-tree-compiler \
-                ccache \
-                linux-initramfs-halium-generic:arm64
-              
-              mkdir -p /usr/local/bin
-              echo '#!/bin/bash' > /usr/local/bin/clang
-              echo 'exec ccache /usr/lib/llvm-android-10.0-r370808/bin/clang \"\$@\"' >> /usr/local/bin/clang
-              chmod +x /usr/local/bin/clang
-              
-              for tool in as ld ar nm objcopy objdump readelf strip; do
-                ln -sf /usr/bin/aarch64-linux-gnu-\$tool /usr/local/bin/aarch64-linux-android-\$tool 2>/dev/null || true
-                ln -sf /usr/bin/aarch64-linux-gnu-\$tool /usr/local/bin/aarch64-linux-gnu-\$tool 2>/dev/null || true
-                ln -sf /usr/bin/arm-linux-gnueabi-\$tool /usr/local/bin/arm-linux-androideabi-\$tool 2>/dev/null || true
-              done
-              
-              rm -f debian/control debian/compat
-              debian/rules debian/control
-              sed -i 's/clang-android-, //g' debian/control
-              
-              RELENG_HOST_ARCH=arm64 releng-build-package
-            "
+              apt-get build-dep -y .
+              dpkg-buildpackage -us -uc -b -aarm64
+              mv ../*.deb /buildd/ 2>/dev/null || true
+            '
 
-      - name: Check Package Outputs
-        run: |
-          ls -la "${{ github.workspace }}/pkgs"
+          echo "=== 内核 Deb 构建产物清单 ==="
+          ls -la "${{ github.workspace }}/pkgs/"
 
-      - name: Upload Kernel Packages
+      - name: Upload Kernel Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: droidian-fp4-kernel-deb
-          path: pkgs/*.deb
-          if-no-files-found: error
+          path: ${{ github.workspace }}/pkgs/*.deb
+          retention-days: 5
