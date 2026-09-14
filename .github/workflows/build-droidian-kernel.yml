@@ -4,14 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
-      - master
       - droidian
-      - halium-11.0
-      - halium-11.0-asb
 
 jobs:
-  build-kernel-deb:
+  build:
     runs-on: ubuntu-22.04
 
     steps:
@@ -22,106 +18,27 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
 
-      - name: Checkout Kernel Source
+      - name: Checkout Source
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Setup CCache Engine
+      - name: Setup CCache
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/.ccache
-          key: fp4-kernel-ccache-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          key: fp4-kernel-ccache-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
-            fp4-kernel-ccache-${{ runner.os }}-${{ github.ref_name }}-
             fp4-kernel-ccache-${{ runner.os }}-
 
-      - name: Setup Packaging Configs
+      - name: Apply droidian.config to defconfig
         run: |
-          # 1. 注入 defconfig 依赖
-          DEFCONFIG="arch/arm64/configs/vendor/fp4-perf_defconfig"
-          if [ ! -f "$DEFCONFIG" ]; then
-            DEFCONFIG=$(find arch/arm64/configs -name "*fp4*" | head -n 1)
+          # 将 droidian 专有配置合并到基准 defconfig
+          if [ -f "droidian/fp4.config" ]; then
+            cat droidian/fp4.config >> arch/arm64/configs/ubports_fp4_defconfig
           fi
-          echo "Target defconfig: $DEFCONFIG"
-          
-          echo "CONFIG_PID_NS=y" >> "$DEFCONFIG"
-          echo "CONFIG_UTS_NS=y" >> "$DEFCONFIG"
-          echo "CONFIG_IPC_NS=y" >> "$DEFCONFIG"
-          echo "CONFIG_NET_NS=y" >> "$DEFCONFIG"
-          echo "CONFIG_USER_NS=y" >> "$DEFCONFIG"
-          echo "CONFIG_VT=y" >> "$DEFCONFIG"
-          echo "CONFIG_VT_CONSOLE=y" >> "$DEFCONFIG"
-          echo "CONFIG_VT_HW_CONSOLE_BINDING=y" >> "$DEFCONFIG"
-          echo "CONFIG_FRAMEBUFFER_CONSOLE=y" >> "$DEFCONFIG"
-          echo "CONFIG_DEVTMPFS=y" >> "$DEFCONFIG"
-          echo "CONFIG_DEVTMPFS_MOUNT=y" >> "$DEFCONFIG"
-          echo "CONFIG_FHANDLE=y" >> "$DEFCONFIG"
-          echo "CONFIG_AUTOFS4_FS=y" >> "$DEFCONFIG"
-          echo "CONFIG_TMPFS_XATTR=y" >> "$DEFCONFIG"
-          echo "CONFIG_FANOTIFY=y" >> "$DEFCONFIG"
-          echo "CONFIG_FANOTIFY_ACCESS_PERMS=y" >> "$DEFCONFIG"
-          echo "CONFIG_RD_GZIP=y" >> "$DEFCONFIG"
-          echo "CONFIG_RD_BZIP2=y" >> "$DEFCONFIG"
-          echo "CONFIG_RD_LZMA=y" >> "$DEFCONFIG"
-          echo "CONFIG_RD_XZ=y" >> "$DEFCONFIG"
-          echo "CONFIG_RD_LZO=y" >> "$DEFCONFIG"
-          echo "CONFIG_RD_LZ4=y" >> "$DEFCONFIG"
-          echo "CONFIG_SECURITY_APPARMOR=y" >> "$DEFCONFIG"
-          echo "CONFIG_DEFAULT_SECURITY_APPARMOR=y" >> "$DEFCONFIG"
-          echo "CONFIG_BLK_DEV_DM=y" >> "$DEFCONFIG"
-          echo "CONFIG_DM_CRYPT=y" >> "$DEFCONFIG"
 
-          # 2. 官方标准 debian 结构
-          mkdir -p debian/source
-          rm -f debian/compat
-          echo "3.0 (native)" > debian/source/format
-
-          # 3. 官方原生 debian/rules
-          printf '#!/usr/bin/make -f\ninclude /usr/share/linux-packaging-snippets/kernel-snippet.mk\n\nBUILD_COMMAND := $(BUILD_COMMAND) DTC_EXT=/usr/bin/dtc\n\n%%:\n\tdh $@\n' > debian/rules
-          chmod +x debian/rules
-
-          # 4. 全量对齐变量与偏移量
-          echo "DEVICE_VENDOR = fairphone" > debian/kernel-info.mk
-          echo "DEVICE_NAME = fp4" >> debian/kernel-info.mk
-          echo "DEVICE_MODEL = fp4" >> debian/kernel-info.mk
-          echo "DEVICE_FULL_NAME = Fairphone 4" >> debian/kernel-info.mk
-          echo "KERNEL_BASE_VERSION = 4.19" >> debian/kernel-info.mk
-          echo "KERNEL_ARCH = arm64" >> debian/kernel-info.mk
-          echo "DEB_BUILD_ON = amd64" >> debian/kernel-info.mk
-          echo "DEB_BUILD_FOR = arm64" >> debian/kernel-info.mk
-          echo "KERNEL_DEFCONFIG = vendor/fp4-perf_defconfig" >> debian/kernel-info.mk
-          
-          # 关键构建目标同时赋值
-          echo "BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
-          echo "KERNEL_BUILD_TARGET = Image.gz" >> debian/kernel-info.mk
-          echo "KERNEL_IMAGE_WITH_DTB = 1" >> debian/kernel-info.mk
-          
-          # 工具链配置
-          echo "BUILD_CC = clang" >> debian/kernel-info.mk
-          echo "CLANG_VERSION = 10.0-r370808" >> debian/kernel-info.mk
-          echo "BUILD_CLANG_TRIPLET = aarch64-linux-gnu-" >> debian/kernel-info.mk
-          echo "CROSS_COMPILE = aarch64-linux-gnu-" >> debian/kernel-info.mk
-          echo "CROSS_COMPILE_ARM32 = arm-linux-gnueabi-" >> debian/kernel-info.mk
-          echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
-
-          # 【唯一修改处】：将 console=ttyMSM0 改为主控制台 console=tty0，移除 earlycon 硬件冲突
-          echo "KERNEL_BOOTIMAGE_CMDLINE = console=tty0 droidian.lvm.prefer lpm_levels.sleep_disabled=1 androidboot.hardware=qcom androidboot.memcg=1 cgroup.memory=nokmem,nosocket swiotlb=2048 service_locator.enable=1 androidboot.usbcontroller=a600000.dwc3 loop.max_part=7" >> debian/kernel-info.mk
-          echo "KERNEL_BOOTIMAGE_BASE_OFFSET = 0x00000000" >> debian/kernel-info.mk
-          echo "KERNEL_BOOTIMAGE_KERNEL_OFFSET = 0x00008000" >> debian/kernel-info.mk
-          echo "KERNEL_BOOTIMAGE_INITRAMFS_OFFSET = 0x01000000" >> debian/kernel-info.mk
-          echo "KERNEL_BOOTIMAGE_SECONDIMAGE_OFFSET = 0x00000000" >> debian/kernel-info.mk
-          echo "KERNEL_BOOTIMAGE_TAGS_OFFSET = 0x00000100" >> debian/kernel-info.mk
-          echo "KERNEL_BOOTIMAGE_DTB_OFFSET = 0x01f00000" >> debian/kernel-info.mk
-          echo "KERNEL_BOOTIMAGE_VERSION = 2" >> debian/kernel-info.mk
-          echo "KERNEL_BOOTIMAGE_PAGE_SIZE = 4096" >> debian/kernel-info.mk
-          
-          echo "FLASH_ENABLED = 1" >> debian/kernel-info.mk
-          echo "FLASH_INFO_MANUFACTURER = Fairphone" >> debian/kernel-info.mk
-          echo "FLASH_INFO_MODEL = FP4" >> debian/kernel-info.mk
-          echo "FLASH_INFO_CPU = Qualcomm Technologies, Inc SM7225" >> debian/kernel-info.mk
-
-      - name: Build Kernel Deb via Droidian Container
+      - name: Build Kernel Package via Droidian Container
         run: |
           mkdir -p "${{ github.workspace }}/pkgs"
           mkdir -p "${{ github.workspace }}/.ccache"
@@ -147,31 +64,17 @@ jobs:
                 ccache \
                 linux-initramfs-halium-generic:arm64
               
-              mkdir -p /usr/local/bin
-              echo '#!/bin/bash' > /usr/local/bin/clang
-              echo 'exec ccache /usr/lib/llvm-android-10.0-r370808/bin/clang \"\$@\"' >> /usr/local/bin/clang
-              chmod +x /usr/local/bin/clang
-              
-              for tool in as ld ar nm objcopy objdump readelf strip; do
-                ln -sf /usr/bin/aarch64-linux-gnu-\$tool /usr/local/bin/aarch64-linux-android-\$tool 2>/dev/null || true
-                ln -sf /usr/bin/aarch64-linux-gnu-\$tool /usr/local/bin/aarch64-linux-gnu-\$tool 2>/dev/null || true
-                ln -sf /usr/bin/arm-linux-gnueabi-\$tool /usr/local/bin/arm-linux-androideabi-\$tool 2>/dev/null || true
-              done
-              
+              # 自动生成控制文件
               rm -f debian/control debian/compat
               debian/rules debian/control
               sed -i 's/clang-android-, //g' debian/control
               
+              # 调用官方全自动构建命令
               RELENG_HOST_ARCH=arm64 releng-build-package
             "
 
-      - name: Check Package Outputs
-        run: |
-          ls -la "${{ github.workspace }}/pkgs"
-
-      - name: Upload Kernel Packages
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: droidian-fp4-kernel-deb
-          path: pkgs/*.deb
-          if-no-files-found: error
+          name: droidian-fp4-kernel
+          path: ${{ github.workspace }}/pkgs/*
