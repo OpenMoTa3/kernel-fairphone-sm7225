@@ -105,8 +105,8 @@ jobs:
           echo "CROSS_COMPILE_ARM32 = arm-linux-gnueabi-" >> debian/kernel-info.mk
           echo "BUILD_PATH = /usr/lib/llvm-android-10.0-r370808/bin" >> debian/kernel-info.mk
 
-          # 仅修正此行：以 console=tty0 为主，移除 earlycon 冲突
-          echo "KERNEL_BOOTIMAGE_CMDLINE = console=tty0 droidian.lvm.prefer androidboot.hardware=qcom androidboot.memcg=1 cgroup.memory=nokmem,nosocket loop.max_part=7" >> debian/kernel-info.mk
+          # 【唯一修改处】：将 console=ttyMSM0 改为主控制台 console=tty0，移除 earlycon 硬件冲突
+          echo "KERNEL_BOOTIMAGE_CMDLINE = console=tty0 droidian.lvm.prefer androidboot.hardware=qcom androidboot.console=tty0 loop.max_part=7" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_BASE_OFFSET = 0x00000000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_KERNEL_OFFSET = 0x00008000" >> debian/kernel-info.mk
           echo "KERNEL_BOOTIMAGE_INITRAMFS_OFFSET = 0x01000000" >> debian/kernel-info.mk
@@ -131,14 +131,47 @@ jobs:
             -v "${{ github.workspace }}:/buildd/sources" \
             -v "${{ github.workspace }}/.ccache:/root/.ccache" \
             -e CCACHE_DIR=/root/.ccache \
-            quay.io/droidian/kernel-builder:bookworm-android9-amd64
+            -e CCACHE_MAXSIZE=5G \
+            -w /buildd/sources \
+            quay.io/droidian/build-essential:current-amd64 \
+            bash -c "
+              set -e
+              git config --global --add safe.directory /buildd/sources
+              
+              dpkg --add-architecture arm64
+              apt-get update
+              apt-get install -y linux-packaging-snippets \
+                binutils-aarch64-linux-gnu \
+                binutils-arm-linux-gnueabi \
+                device-tree-compiler \
+                ccache \
+                linux-initramfs-halium-generic:arm64
+              
+              mkdir -p /usr/local/bin
+              echo '#!/bin/bash' > /usr/local/bin/clang
+              echo 'exec ccache /usr/lib/llvm-android-10.0-r370808/bin/clang \"\$@\"' >> /usr/local/bin/clang
+              chmod +x /usr/local/bin/clang
+              
+              for tool in as ld ar nm objcopy objdump readelf strip; do
+                ln -sf /usr/bin/aarch64-linux-gnu-\$tool /usr/local/bin/aarch64-linux-android-\$tool 2>/dev/null || true
+                ln -sf /usr/bin/aarch64-linux-gnu-\$tool /usr/local/bin/aarch64-linux-gnu-\$tool 2>/dev/null || true
+                ln -sf /usr/bin/arm-linux-gnueabi-\$tool /usr/local/bin/arm-linux-androideabi-\$tool 2>/dev/null || true
+              done
+              
+              rm -f debian/control debian/compat
+              debian/rules debian/control
+              sed -i 's/clang-android-, //g' debian/control
+              
+              RELENG_HOST_ARCH=arm64 releng-build-package
+            "
 
-          echo "=== 内核 Deb 构建产物清单 ==="
-          ls -la "${{ github.workspace }}/pkgs/"
+      - name: Check Package Outputs
+        run: |
+          ls -la "${{ github.workspace }}/pkgs"
 
-      - name: Upload Kernel Artifacts
+      - name: Upload Kernel Packages
         uses: actions/upload-artifact@v4
         with:
           name: droidian-fp4-kernel-deb
-          path: ${{ github.workspace }}/pkgs/*.deb
-          retention-days: 5
+          path: pkgs/*.deb
+          if-no-files-found: error
